@@ -2,7 +2,7 @@
 
 A [Rex](https://www.superlogical.com/rex) plugin that finds which pane is running the server on a given port and jumps to it. It looks at every session, so you can find the process on `:5173` without remembering which tab started it.
 
-![The Go to Port picker listing three dev servers](screenshot.png)
+![The Go to Port picker filtered to four dev servers](screenshot.png)
 
 ## Requirements
 
