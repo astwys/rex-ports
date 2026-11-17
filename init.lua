@@ -2,32 +2,11 @@
 -- Lists them in an fzf picker in a floating pane; Enter jumps, Esc just closes.
 local terminal = "com.superlogical.terminal"
 
-local function lines(argv)
-  local r = rex.exec(argv)
-  return (r and r.stdout or ""):gmatch("[^\n]+")
-end
+local function basename(path) return path and path:match("[^/]+$") end
 
--- { {port, name, pid}, ... } for every listening TCP socket, one per pid+port
-local function listeners()
-  local out, seen, pid, name = {}, {}, nil, nil
-  for l in lines{ "lsof", "+c0", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fpcn" } do
-    local tag, val = l:sub(1, 1), l:sub(2)
-    if tag == "p" then pid = tonumber(val)
-    elseif tag == "c" then name = val
-    elseif tag == "n" then
-      local port = tonumber(val:match(":(%d+)$"))
-      if port and not seen[pid .. ":" .. port] then
-        seen[pid .. ":" .. port] = true
-        out[#out + 1] = { port = port, name = name, pid = pid }
-      end
-    end
-  end
-  return out
-end
-
--- pid of each terminal's child process -> where that pane lives
-local function panes()
-  local by_pid = {}
+-- every port a Rex pane's programs listen on, across all sessions, sorted by port
+local function find()
+  local found = {}
   -- other sessions can't be viewed until this stream is attached to them
   rex.call("session.attach_all", { event_scope = "all" })
   for _, s in ipairs(rex.call("session.list").sessions) do
@@ -35,36 +14,30 @@ local function panes()
     for _, w in ipairs(view and view.windows or {}) do
       for _, layer in ipairs(w.layers) do
         for _, b in ipairs(layer.blocks) do
-          local p = b.creator_name == terminal
-            and rex.call("block.method", { session_id = s.session_id, block_id = b.block_id, method = "process" })
-          if p and p.child then
-            by_pid[p.child.pid] = {
-              session_id = s.session_id, window_id = w.window_id, block_id = b.block_id,
-              where = table.concat({ s.label or "?", w.label or "?", b.label or "?" }, " › "),
-            }
+          -- ponytail: ignores truncated replies; read the blob by id if a pane ever holds that many ports
+          local r = b.creator_name == terminal
+            and rex.call("block.method", { session_id = s.session_id, block_id = b.block_id, method = "ports" })
+          if r and r.ports then
+            local procs, seen = {}, {}
+            for _, p in ipairs(r.processes or {}) do procs[p.pid] = p end
+            for _, p in ipairs(r.ports) do
+              -- one row per port, though IPv4 and IPv6 each report it
+              if p.protocol == "tcp" and not seen[p.port] then
+                seen[p.port] = true
+                local proc = procs[p.pid] or {}
+                found[#found + 1] = {
+                  port = p.port,
+                  name = basename(proc.script or proc.argv0 or proc.name) or "?",
+                  pane = {
+                    session_id = s.session_id, window_id = w.window_id, block_id = b.block_id,
+                    where = table.concat({ s.label or "?", w.label or "?", b.label or "?" }, " › "),
+                  },
+                }
+              end
+            end
           end
         end
       end
-    end
-  end
-  return by_pid
-end
-
--- listeners that run inside a Rex pane, sorted by port
-local function find()
-  local parent = {}
-  for l in lines{ "ps", "-axo", "pid=,ppid=" } do
-    local pid, ppid = l:match("(%d+)%s+(%d+)")
-    parent[tonumber(pid)] = tonumber(ppid)
-  end
-  local by_pid, found = panes(), {}
-  for _, ls in ipairs(listeners()) do
-    local pid = ls.pid
-    -- Docker/OrbStack ports are owned by the VM, not a pane, so they never match
-    while pid and pid > 1 and not by_pid[pid] do pid = parent[pid] end
-    if by_pid[pid] then
-      ls.pane = by_pid[pid]
-      found[#found + 1] = ls
     end
   end
   table.sort(found, function(a, b) return a.port < b.port end)

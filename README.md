@@ -6,10 +6,9 @@ A [Rex](https://www.superlogical.com/rex) plugin that lists the TCP ports your R
 
 ## Requirements
 
-- Rex, tested with 0.1.0-preview.19
+- Rex server 0.1.0-preview.20 or later, which added the terminal `ports` method
 - the `rex` CLI on your `PATH`, because fzf runs `rex do ports` to jump
 - [fzf](https://github.com/junegunn/fzf)
-- `lsof` and `ps`, which macOS ships with
 
 ## Install
 
@@ -40,7 +39,7 @@ rex do ports port=5173
 
 ## How it works
 
-`lsof` lists the listening TCP sockets and their process IDs. The plugin calls each Rex terminal's `process` method to get the PID of its shell. For each listener, it follows the parent process IDs until it reaches one of those shells. The picker leaves out listeners that reach none.
+The plugin calls each Rex terminal's `ports` method, which lists the TCP ports its programs listen on and the process that holds each one. A port bound on both IPv4 and IPv6 shows once.
 
 Ports that Docker or OrbStack publish belong to the VM process, not to a pane, so they never appear.
 
