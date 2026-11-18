@@ -1,5 +1,5 @@
 -- Jump to the pane whose process listens on a TCP port, across all sessions.
--- Lists them in an fzf picker in a floating pane; Enter jumps, Esc just closes.
+-- Lists them in the command palette; picking one jumps there.
 local terminal = "com.superlogical.terminal"
 
 local function basename(path) return path and path:match("[^/]+$") end
@@ -64,20 +64,11 @@ rex.action{
     end
     if #found == 0 then error("no Rex pane is listening on a port", 0) end
 
-    local cmd = {
-      "sh", "-c",
-      'printf "%s\\n" "$@" | fzf --reverse --prompt "port> " --delimiter "\\t" --with-nth 2.. '
-        .. '--bind "enter:become(rex -C ' .. ctx.client_id .. ' do ports port={1})"',
-      "sh",
-    }
-    for _, f in ipairs(found) do
-      cmd[#cmd + 1] = string.format("%d\t:%-5d  %-24s  %s", f.port, f.port, f.name, f.pane.where)
+    local items = {}
+    for i, f in ipairs(found) do
+      items[i] = { id = tostring(i), title = ":" .. f.port, subtitle = f.pane.where, detail = f.name, icon = "server" }
     end
-    local _, err = rex.session.new_layer{
-      bounds = { 0.2, 0.25, 0.6, 0.5 },
-      focus  = true,
-      layout = rex.layout.block{ flavor = terminal .. ".shell", options = { command = cmd } },
-    }
-    if err ~= nil then error(err, 0) end
+    local pick = rex.ui.pick{ title = "Go to Port", placeholder = "Filter ports", items = items }
+    if pick then go(found[tonumber(pick)].pane) end
   end,
 }
