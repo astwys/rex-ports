@@ -6,9 +6,7 @@ A [Rex](https://www.superlogical.com/rex) plugin that lists the TCP ports your R
 
 ## Requirements
 
-- Rex server 0.1.0-preview.20 or later, which added the terminal `ports` method
-- the `rex` CLI on your `PATH`, because fzf runs `rex do ports` to jump
-- [fzf](https://github.com/junegunn/fzf)
+- Rex server 0.1.0-preview.21 or later, for command palette prompts (`rex.ui`). The terminal `ports` method arrived in preview.20.
 
 ## Install
 
@@ -29,7 +27,7 @@ Then run `rex config reload`.
 
 ## Usage
 
-Press the key, or pick "Go to Port…" in the command palette. A floating pane lists each port that a process in a Rex pane listens on, with the process name and the pane's location as `session › window › pane`. Enter jumps to the pane. Esc closes the picker.
+Press the key, or pick "Go to Port…" in the command palette. The palette lists each port that a process in a Rex pane listens on, with the pane's location as `session › window › pane` and the process name. Return jumps to the pane. Esc closes the list.
 
 To skip the picker, pass the port:
 
